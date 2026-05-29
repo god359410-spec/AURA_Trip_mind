@@ -17,4 +17,15 @@ export default defineConfig({
     port: 5173,
     open: true,
   },
+  build: {
+    chunkSizeWarningLimit: 1500, // Increase warning limit to suppress Vercel deployment warnings
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          // Split large third-party libraries into a separate vendor chunk
+          vendor: ['react', 'react-dom', 'react-router-dom', 'framer-motion', 'lucide-react', 'zustand']
+        }
+      }
+    }
+  }
 })
