@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { MapPin, Calendar, DollarSign, Sparkles, Plus, Trash2, ArrowRight, ArrowLeft, Navigation, RefreshCw } from 'lucide-react';
@@ -6,15 +6,20 @@ import { Trip, TripStyle, AccommodationType, GroupMember, DietaryRestriction, Ac
 import { useTripStore } from '../stores/tripStore';
 import { useAuthStore } from '../stores/authStore';
 import { useUIStore } from '../stores/uiStore';
+import { useItineraryStore } from '../stores/itineraryStore';
 import { saveTrip } from '../services/supabase/trips';
 import { useTripGeneration } from '../hooks/useTripGeneration';
 import AIThinkingIndicator from '../components/common/AIThinkingIndicator';
+import PlanRevealScreen from '../components/common/PlanRevealScreen';
 import { getTodayISO, getMinEndDate } from '../utils/dateUtils';
 import { TRIP_STYLES, ACCOMMODATION_TYPES, CURRENCIES, DIETARY_OPTIONS, ACCESSIBILITY_OPTIONS } from '../constants/ageCategories';
 
 export default function NewTrip() {
   const [step, setStep] = useState(1);
   const [isLocating, setIsLocating] = useState(false);
+  const [showReveal, setShowReveal] = useState(false);
+  const [pendingTripId, setPendingTripId] = useState<string | null>(null);
+  const [pendingTrip, setPendingTrip] = useState<Trip | null>(null);
   
   // Currency Converter State
   const [convAmount, setConvAmount] = useState<number>(1000);
@@ -24,6 +29,7 @@ export default function NewTrip() {
   const [isConverting, setIsConverting] = useState(false);
   const { user } = useAuthStore();
   const { isGenerating, generationProgress, agentStatus } = useTripStore();
+  const { itinerary } = useItineraryStore();
   const { addToast } = useUIStore();
   const { generateTrip } = useTripGeneration();
   const navigate = useNavigate();
@@ -177,25 +183,42 @@ export default function NewTrip() {
           addToast({ type: 'error', message: 'Failed to save to database, but generating your plan anyway...' });
         }
       }
-      const result = await generateTrip(newTrip);
-      if (!user) {
-        addToast({ type: 'info', message: 'Trip generated! Log in to save it.' });
-      } else if (result.itinerary) {
-        addToast({ type: 'success', message: 'Trip generated! Preparing email...' });
-      }
-      navigate(`/trip/${tripId}`);
+      await generateTrip(newTrip);
+      // Store trip info for the reveal screen
+      setPendingTripId(tripId);
+      setPendingTrip(newTrip);
+      // Show the immersive plan reveal instead of navigating immediately
+      setShowReveal(true);
     } catch (err) {
       console.error(err);
     }
   };
 
+  // Fallback: navigate if reveal triggered but itinerary not ready
+  useEffect(() => {
+    if (showReveal && pendingTripId && !itinerary) {
+      navigate(`/trip/${pendingTripId}`);
+    }
+  }, [showReveal, pendingTripId, itinerary, navigate]);
+
   if (isGenerating) {
     return (
-      <div className="min-h-[80vh] flex items-center justify-center bg-background">
-        <AIThinkingIndicator progress={generationProgress} agentStatus={agentStatus} />
-      </div>
+      <AIThinkingIndicator progress={generationProgress} agentStatus={agentStatus} />
     );
   }
+  // Plan reveal screen — shown after generation, before navigating to trip detail
+  if (showReveal && pendingTripId && pendingTrip && itinerary) {
+    return (
+      <PlanRevealScreen
+        itinerary={itinerary}
+        trip={pendingTrip}
+        user={user}
+        onNavigate={() => navigate(`/trip/${pendingTripId}`)}
+        onLoginRequest={() => navigate('/login')}
+      />
+    );
+  }
+
 
   return (
     <div className="font-body min-h-screen pt-24 pb-24 px-6 flex flex-col items-center justify-center bg-gradient-to-b from-[#1c1c1c] to-[#0a0a0a]">
@@ -295,17 +318,17 @@ export default function NewTrip() {
                         <div className="flex flex-col gap-3">
                           <label className="text-[0.6rem] font-sans text-primary/40 uppercase tracking-[0.2em]">Traveler Name</label>
                           <input type="text" placeholder="Name" value={member.name} onChange={e => updateMember(member.id, { name: e.target.value })} 
-                                 className="w-full bg-surface/50 border border-darkBorder rounded-none py-2.5 px-4 text-sm text-primary focus:outline-none focus:border-gold/50 transition-colors placeholder:text-primary/20" />
+                                 className="w-full bg-surface/50 border border-darkBorder rounded-lg py-3 px-5 text-sm text-primary focus:outline-none focus:border-gold/50 transition-colors placeholder:text-primary/20" />
                         </div>
                         <div className="flex flex-col gap-3">
                           <label className="text-[0.6rem] font-sans text-primary/40 uppercase tracking-[0.2em]">Age</label>
                           <input type="number" min="0" max="120" value={member.age} onChange={e => updateMember(member.id, { age: parseInt(e.target.value) || 0 })} 
-                                 className="w-full bg-surface/50 border border-darkBorder rounded-none py-2.5 px-4 text-sm text-primary focus:outline-none focus:border-gold/50 transition-colors" />
+                                 className="w-full bg-surface/50 border border-darkBorder rounded-lg py-3 px-5 text-sm text-primary focus:outline-none focus:border-gold/50 transition-colors" />
                         </div>
                         <div className="flex flex-col gap-3">
                           <label className="text-[0.6rem] font-sans text-primary/40 uppercase tracking-[0.2em]">Gender</label>
                           <select value={member.gender || 'Not Specified'} onChange={e => updateMember(member.id, { gender: e.target.value })}
-                                  className="w-full bg-surface/50 border border-darkBorder rounded-none py-2.5 px-4 text-sm text-primary focus:outline-none focus:border-gold/50 transition-colors [&>option]:text-background">
+                                  className="w-full bg-surface/50 border border-darkBorder rounded-lg py-3 px-5 text-sm text-primary focus:outline-none focus:border-gold/50 transition-colors [&>option]:text-background">
                             <option value="Not Specified">Not Specified</option>
                             <option value="Male">Male</option>
                             <option value="Female">Female</option>
@@ -316,14 +339,14 @@ export default function NewTrip() {
 
                       <div className="mb-8">
                         <label className="block text-[0.6rem] font-sans text-primary/40 uppercase tracking-[0.2em] mb-4">Dietary Restrictions</label>
-                        <div className="flex flex-wrap gap-2">
+                        <div className="flex flex-wrap gap-3">
                           {DIETARY_OPTIONS.map(opt => (
                             <button
                               key={opt.value} type="button" onClick={() => toggleArrayItem(member.id, 'dietaryRestrictions', opt.value as DietaryRestriction)}
-                              className={`px-4 py-2 text-[0.65rem] tracking-[0.1em] uppercase transition-all border ${
+                              className={`px-5 py-3 rounded-full text-[0.7rem] tracking-[0.1em] uppercase transition-all border ${
                                 member.dietaryRestrictions.includes(opt.value as DietaryRestriction)
-                                  ? 'bg-gold/10 text-gold border-gold/50'
-                                  : 'bg-transparent text-primary/50 border-darkBorder hover:border-primary/30'
+                                  ? 'bg-gold/10 text-gold border-gold/50 shadow-[0_0_15px_rgba(196,163,90,0.2)]'
+                                  : 'bg-transparent text-primary/60 border-darkBorder hover:border-primary/40 hover:bg-white/5'
                               }`}
                             >
                               {opt.emoji} {opt.label}
@@ -334,14 +357,14 @@ export default function NewTrip() {
 
                       <div>
                         <label className="block text-[0.6rem] font-sans text-primary/40 uppercase tracking-[0.2em] mb-4">Accessibility Needs</label>
-                        <div className="flex flex-wrap gap-2">
+                        <div className="flex flex-wrap gap-3">
                           {ACCESSIBILITY_OPTIONS.map(opt => (
                             <button
                               key={opt.value} type="button" onClick={() => toggleArrayItem(member.id, 'accessibilityNeeds', opt.value as AccessibilityNeed)}
-                              className={`px-4 py-2 text-[0.65rem] tracking-[0.1em] uppercase transition-all border flex items-center gap-2 ${
+                              className={`px-5 py-3 rounded-full text-[0.7rem] tracking-[0.1em] uppercase transition-all border flex items-center gap-2 ${
                                 member.accessibilityNeeds.includes(opt.value as AccessibilityNeed)
-                                  ? 'bg-gold/10 text-gold border-gold/50'
-                                  : 'bg-transparent text-primary/50 border-darkBorder hover:border-primary/30'
+                                  ? 'bg-gold/10 text-gold border-gold/50 shadow-[0_0_15px_rgba(196,163,90,0.2)]'
+                                  : 'bg-transparent text-primary/60 border-darkBorder hover:border-primary/40 hover:bg-white/5'
                               }`}
                             >
                               {opt.icon} {opt.label}
@@ -351,19 +374,20 @@ export default function NewTrip() {
                       </div>
                     </div>
                   ))}
+                  <div className="flex justify-start">
+                    <button onClick={addMember} className="flex items-center gap-2 text-[0.7rem] font-sans uppercase tracking-[0.2em] text-gold hover:text-goldLight transition-colors hover:bg-gold/10 px-6 py-3 rounded-full border border-gold/20">
+                      <Plus size={14} /> Add Another Traveler
+                    </button>
+                  </div>
 
-                  <button onClick={addMember} className="self-start flex items-center gap-2 text-goldLight hover:text-gold text-[0.65rem] font-sans tracking-[0.2em] uppercase transition-colors">
-                    <Plus size={14} /> Add Another Traveler
-                  </button>
-                </div>
-
-                <div className="flex justify-center items-center mt-16 pt-8 border-t border-white/5 relative">
-                  <button onClick={() => setStep(1)} className="absolute left-0 flex items-center gap-2 text-primary/50 hover:text-white text-[0.7rem] font-sans uppercase tracking-[0.2em] transition-colors">
-                    <ArrowLeft size={16} /> Back
-                  </button>
-                  <button onClick={() => setStep(3)} className="flex items-center gap-3 bg-gradient-to-r from-gold via-goldLight to-gold text-black px-12 py-4 rounded-full text-[0.8rem] font-bold uppercase tracking-[0.25em] transition-all hover:shadow-[0_0_30px_rgba(196,163,90,0.3)] hover:-translate-y-1">
-                    Next Step <ArrowRight size={16} />
-                  </button>
+                  <div className="flex justify-between mt-12 pt-8 border-t border-white/5">
+                    <button onClick={() => setStep(1)} className="flex items-center gap-2 text-primary/60 hover:text-primary transition-colors text-[0.75rem] font-bold uppercase tracking-[0.2em]">
+                      <ArrowLeft size={16} /> Back
+                    </button>
+                    <button onClick={() => setStep(3)} className="flex items-center gap-3 bg-gradient-to-r from-gold via-goldLight to-gold text-black px-12 py-4 rounded-full text-[0.8rem] font-bold uppercase tracking-[0.25em] transition-all hover:shadow-[0_0_30px_rgba(196,163,90,0.3)] hover:-translate-y-1">
+                      Next Step <ArrowRight size={16} />
+                    </button>
+                  </div>
                 </div>
               </motion.div>
             )}

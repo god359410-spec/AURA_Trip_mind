@@ -18,6 +18,7 @@ import WeatherPage from './pages/Weather';
 import PackingListPage from './pages/PackingList';
 import ChatPage from './pages/Chat';
 import SharedItinerary from './pages/SharedItinerary';
+import About from './pages/About';
 import NotFound from './pages/NotFound';
 
 import ChatbotWidget from './components/chat/ChatbotWidget';
@@ -52,7 +53,7 @@ function RootLayout() {
         </main>
         <Footer />
       </div>
-      <ChatbotWidget />
+      {location.pathname === '/' && <ChatbotWidget />}
       <ToastContainer />
     </div>
   );
@@ -81,6 +82,7 @@ const router = createBrowserRouter([
         ],
       },
       { path: 'share/:shareToken', element: <SharedItinerary /> },
+      { path: 'about', element: <About /> },
       { path: '*', element: <NotFound /> },
     ],
   },

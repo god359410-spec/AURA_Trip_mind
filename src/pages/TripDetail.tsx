@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Calendar, MapPin, Users, Share2, Download, MessageCircle, Map as MapIcon, DollarSign, Hotel, CloudSun, Luggage, Mail, ChevronRight } from 'lucide-react';
+import { Calendar, MapPin, Users, Share2, Download, MessageCircle, Map as MapIcon, DollarSign, Hotel, CloudSun, Luggage, Mail, ChevronRight, LogIn, X } from 'lucide-react';
 import { useTripStore } from '../stores/tripStore';
 import { useUIStore } from '../stores/uiStore';
 import { useAuthStore } from '../stores/authStore';
@@ -17,6 +17,7 @@ export default function TripDetail() {
   const { currentTrip, savedTrips, setCurrentTrip } = useTripStore();
   const { addToast } = useUIStore();
   const [isScrolled, setIsScrolled] = useState(false);
+  const [showLoginPrompt, setShowLoginPrompt] = useState(false);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -105,8 +106,7 @@ export default function TripDetail() {
     // Use auth store to check login
     const user = useAuthStore.getState().user;
     if (!user) {
-      addToast({ type: 'warning', message: 'Please log in to send your itinerary via email.' });
-      navigate('/login');
+      setShowLoginPrompt(true);
       return;
     }
 
@@ -208,6 +208,102 @@ Powered by Trip Mind AI Aura TKS.`);
           </motion.div>
         </AnimatePresence>
       </div>
+
+      {/* ══════════════════════════════════════════
+          INLINE LOGIN PROMPT MODAL
+      ══════════════════════════════════════════ */}
+      <AnimatePresence>
+        {showLoginPrompt && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center px-6"
+            style={{ background: 'rgba(5,5,5,0.8)', backdropFilter: 'blur(16px)' }}
+          >
+            <motion.div
+              initial={{ scale: 0.92, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.92, y: 20 }}
+              transition={{ type: 'spring', stiffness: 220, damping: 22 }}
+              className="relative w-full max-w-md text-center"
+              style={{
+                background: 'linear-gradient(135deg, #141009 0%, #0d0d0d 100%)',
+                border: '1px solid rgba(196,163,90,0.25)',
+                borderRadius: 20,
+                padding: '48px 40px',
+                boxShadow: '0 40px 80px rgba(0,0,0,0.8), 0 0 60px rgba(196,163,90,0.06)',
+              }}
+            >
+              <button
+                onClick={() => setShowLoginPrompt(false)}
+                className="absolute top-5 right-5 transition-colors"
+                style={{ color: 'rgba(245,240,235,0.3)' }}
+              >
+                <X size={16} />
+              </button>
+
+              {/* Icon */}
+              <div
+                className="mx-auto mb-6 flex items-center justify-center"
+                style={{
+                  width: 64, height: 64,
+                  borderRadius: '50%',
+                  background: 'rgba(196,163,90,0.08)',
+                  border: '1px solid rgba(196,163,90,0.25)',
+                  fontSize: 28,
+                }}
+              >
+                📧
+              </div>
+
+              <h3
+                className="font-display font-light mb-3"
+                style={{ fontSize: '1.8rem', color: '#f5f0eb', letterSpacing: '0.02em' }}
+              >
+                Sign in to send
+                <br />
+                your plan via email
+              </h3>
+              <p
+                className="font-sans font-light mb-8"
+                style={{ color: 'rgba(245,240,235,0.4)', fontSize: '0.85rem', lineHeight: 1.7 }}
+              >
+                Log in to get your full AI itinerary sent directly to your inbox so you can easily share it.
+              </p>
+
+              <div className="flex flex-col gap-3">
+                <button
+                  onClick={() => { setShowLoginPrompt(false); navigate('/login'); }}
+                  className="w-full flex items-center justify-center gap-3 transition-all hover:-translate-y-0.5"
+                  style={{
+                    background: 'linear-gradient(135deg, #c4a35a 0%, #e6c883 50%, #c4a35a 100%)',
+                    color: '#0a0a0a',
+                    borderRadius: 10,
+                    padding: '14px 20px',
+                    fontSize: '0.7rem',
+                    fontFamily: 'var(--font-sans)',
+                    fontWeight: 700,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.25em',
+                    boxShadow: '0 0 24px rgba(196,163,90,0.2)',
+                  }}
+                >
+                  <LogIn size={14} />
+                  Sign In to Continue
+                </button>
+                <button
+                  onClick={() => setShowLoginPrompt(false)}
+                  className="w-full font-sans text-[0.65rem] uppercase tracking-[0.2em] py-3 transition-colors"
+                  style={{ color: 'rgba(245,240,235,0.3)' }}
+                >
+                  Cancel
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

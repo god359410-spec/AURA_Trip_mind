@@ -1,7 +1,7 @@
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useState, useEffect } from 'react';
-import { Menu, X, LogOut, LayoutDashboard, Sparkles } from 'lucide-react';
+import { Menu, X, LogOut, LayoutDashboard, Sparkles, Info } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 
 export default function Navbar() {
@@ -49,6 +49,9 @@ export default function Navbar() {
         <nav className="hidden md:flex items-center gap-10">
           {user ? (
             <>
+              <Link to="/about" className="font-sans text-[0.65rem] font-semibold tracking-[0.2em] uppercase text-primary/70 hover:text-goldLight transition-colors duration-300 relative after:content-[''] after:absolute after:-bottom-1.5 after:left-0 after:w-full after:h-[1px] after:bg-goldLight/50 after:origin-right after:scale-x-0 hover:after:scale-x-100 hover:after:origin-left after:transition-transform after:duration-500">
+                About Us
+              </Link>
               <Link to="/dashboard" className="font-sans text-[0.65rem] font-semibold tracking-[0.2em] uppercase text-primary/70 hover:text-goldLight transition-colors duration-300 relative after:content-[''] after:absolute after:-bottom-1.5 after:left-0 after:w-full after:h-[1px] after:bg-goldLight/50 after:origin-right after:scale-x-0 hover:after:scale-x-100 hover:after:origin-left after:transition-transform after:duration-500">
                 Dashboard
               </Link>
@@ -64,6 +67,9 @@ export default function Navbar() {
             </>
           ) : (
             <>
+              <Link to="/about" className="font-sans text-[0.65rem] font-semibold tracking-[0.2em] uppercase text-primary/70 hover:text-goldLight transition-colors duration-300 relative after:content-[''] after:absolute after:-bottom-1.5 after:left-0 after:w-full after:h-[1px] after:bg-goldLight/50 after:origin-right after:scale-x-0 hover:after:scale-x-100 hover:after:origin-left after:transition-transform after:duration-500">
+                About Us
+              </Link>
               <Link to="/login" className="font-sans text-[0.65rem] font-semibold tracking-[0.2em] uppercase text-primary/70 hover:text-goldLight transition-colors duration-300 relative after:content-[''] after:absolute after:-bottom-1.5 after:left-0 after:w-full after:h-[1px] after:bg-goldLight/50 after:origin-right after:scale-x-0 hover:after:scale-x-100 hover:after:origin-left after:transition-transform after:duration-500">
                 Sign In
               </Link>
@@ -99,6 +105,9 @@ export default function Navbar() {
             <div className="px-6 py-8 flex flex-col gap-6">
               {user ? (
                 <>
+                  <Link to="/about" onClick={() => setMenuOpen(false)} className="font-sans text-[0.7rem] font-medium tracking-[0.2em] uppercase text-primary/80 flex items-center gap-3">
+                    <Info size={14} /> About Us
+                  </Link>
                   <Link to="/dashboard" onClick={() => setMenuOpen(false)} className="font-sans text-[0.7rem] font-medium tracking-[0.2em] uppercase text-primary/80 flex items-center gap-3">
                     <LayoutDashboard size={14} /> Dashboard
                   </Link>
@@ -111,6 +120,9 @@ export default function Navbar() {
                 </>
               ) : (
                 <>
+                  <Link to="/about" onClick={() => setMenuOpen(false)} className="font-sans text-[0.7rem] font-medium tracking-[0.2em] uppercase text-primary/80 flex items-center gap-3">
+                    <Info size={14} /> About Us
+                  </Link>
                   <Link to="/login" onClick={() => setMenuOpen(false)} className="font-sans text-[0.7rem] font-medium tracking-[0.2em] uppercase text-primary/80">
                     Sign In
                   </Link>
