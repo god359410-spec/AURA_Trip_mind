@@ -34,6 +34,7 @@ export interface DayPlan {
   totalGroupCost: number;
   accessibilityScore: number;
   weatherNote?: string;
+  imageSearchTerm: string;
 }
 
 export interface RouteOption {

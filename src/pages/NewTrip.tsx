@@ -7,6 +7,7 @@ import { useTripStore } from '../stores/tripStore';
 import { useAuthStore } from '../stores/authStore';
 import { useUIStore } from '../stores/uiStore';
 import { useItineraryStore } from '../stores/itineraryStore';
+import { useWeatherStore } from '../stores/weatherStore';
 import { saveTrip } from '../services/supabase/trips';
 import { useTripGeneration } from '../hooks/useTripGeneration';
 import AIThinkingIndicator from '../components/common/AIThinkingIndicator';
@@ -29,7 +30,8 @@ export default function NewTrip() {
   const [isConverting, setIsConverting] = useState(false);
   const { user } = useAuthStore();
   const { isGenerating, generationProgress, agentStatus } = useTripStore();
-  const { itinerary } = useItineraryStore();
+  const { itinerary, hotels, restaurants, packingList } = useItineraryStore();
+  const weatherForecast = useWeatherStore(s => s.forecast);
   const { addToast } = useUIStore();
   const { generateTrip } = useTripGeneration();
   const navigate = useNavigate();
@@ -187,6 +189,11 @@ export default function NewTrip() {
       // Store trip info for the reveal screen
       setPendingTripId(tripId);
       setPendingTrip(newTrip);
+      
+      // Ensure the generated trip is available globally when we navigate
+      useTripStore.getState().setCurrentTrip(newTrip);
+      useTripStore.getState().addSavedTrip(newTrip);
+
       // Show the immersive plan reveal instead of navigating immediately
       setShowReveal(true);
     } catch (err) {
@@ -213,6 +220,10 @@ export default function NewTrip() {
         itinerary={itinerary}
         trip={pendingTrip}
         user={user}
+        hotels={hotels}
+        restaurants={restaurants}
+        packingList={packingList}
+        weatherForecast={weatherForecast}
         onNavigate={() => navigate(`/trip/${pendingTripId}`)}
         onLoginRequest={() => navigate('/login')}
       />
