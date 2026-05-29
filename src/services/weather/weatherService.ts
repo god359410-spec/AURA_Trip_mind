@@ -44,6 +44,35 @@ export async function getCurrentWeather(city: string): Promise<WeatherData> {
   return data;
 }
 
+/** Fetch current weather using exact coordinates (preferred for accuracy) */
+export async function getCurrentWeatherByCoords(lat: number, lng: number): Promise<WeatherData> {
+  const cacheKey = `current:${lat},${lng}`;
+  const cached = cache.get(cacheKey);
+  if (cached && isCacheValid(cached)) return cached.data as WeatherData;
+
+  const response = await axios.get(`${BASE_URL}/weather`, {
+    params: { lat, lon: lng, appid: API_KEY, units: 'metric' },
+  });
+
+  const d = response.data;
+  const data: WeatherData = {
+    city: d.name,
+    country: d.sys.country,
+    temperature: Math.round(d.main.temp),
+    feelsLike: Math.round(d.main.feels_like),
+    humidity: d.main.humidity,
+    windSpeed: Math.round(d.wind.speed * 3.6),
+    visibility: Math.round((d.visibility || 10000) / 1000),
+    condition: d.weather[0],
+    sunrise: d.sys.sunrise,
+    sunset: d.sys.sunset,
+    timestamp: Date.now(),
+  };
+
+  cache.set(cacheKey, { data, timestamp: Date.now() });
+  return data;
+}
+
 export async function getWeatherForecast(city: string): Promise<WeatherForecast> {
   const cacheKey = `forecast:${city}`;
   const cached = cache.get(cacheKey);
@@ -53,31 +82,48 @@ export async function getWeatherForecast(city: string): Promise<WeatherForecast>
     params: { q: city, appid: API_KEY, units: 'metric', cnt: 40 },
   });
 
-  const d = response.data;
-  const dayMap = new Map<string, typeof d.list[0][]>();
+  return parseAndCacheForecast(response.data, `forecast:${city}`);
+}
+
+/** Fetch 5-day forecast using exact coordinates (preferred for accuracy) */
+export async function getWeatherForecastByCoords(lat: number, lng: number): Promise<WeatherForecast> {
+  const cacheKey = `forecast:${lat},${lng}`;
+  const cached = cache.get(cacheKey);
+  if (cached && isCacheValid(cached)) return cached.data as WeatherForecast;
+
+  const response = await axios.get(`${BASE_URL}/forecast`, {
+    params: { lat, lon: lng, appid: API_KEY, units: 'metric', cnt: 40 },
+  });
+
+  return parseAndCacheForecast(response.data, cacheKey);
+}
+
+function parseAndCacheForecast(data: Record<string, unknown>, cacheKey: string): WeatherForecast {
+  const d = data as { list: Record<string, unknown>[]; city: { name: string; country: string } };
+  const dayMap = new Map<string, typeof d.list>();
 
   for (const item of d.list) {
-    const date = item.dt_txt.split(' ')[0];
+    const date = (item.dt_txt as string).split(' ')[0];
     if (!dayMap.has(date)) dayMap.set(date, []);
     dayMap.get(date)!.push(item);
   }
 
   const days: ForecastDay[] = Array.from(dayMap.entries()).slice(0, 5).map(([date, items]) => {
-    const temps = items.map((i: { main: { temp: number } }) => i.main.temp);
-    const precipProbs = items.map((i: { pop: number }) => i.pop || 0);
-    const noon = items.find((i: { dt_txt: string }) => i.dt_txt.includes('12:00')) || items[Math.floor(items.length / 2)];
-    const d = new Date(date + 'T12:00:00');
+    const temps = items.map((i) => (i.main as { temp: number }).temp);
+    const precipProbs = items.map((i) => (i.pop as number) || 0);
+    const noon = items.find((i) => (i.dt_txt as string).includes('12:00')) || items[Math.floor(items.length / 2)];
+    const dateObj = new Date(date + 'T12:00:00');
 
     return {
       date,
-      dateFormatted: d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-      dayName: d.toLocaleDateString('en-US', { weekday: 'short' }),
+      dateFormatted: dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+      dayName: dateObj.toLocaleDateString('en-US', { weekday: 'short' }),
       tempMin: Math.round(Math.min(...temps)),
       tempMax: Math.round(Math.max(...temps)),
       precipitationProbability: Math.round(Math.max(...precipProbs) * 100),
-      condition: noon.weather[0],
-      humidity: noon.main.humidity,
-      windSpeed: Math.round(noon.wind.speed * 3.6),
+      condition: (noon.weather as { id: number; main: string; description: string; icon: string }[])[0],
+      humidity: (noon.main as { humidity: number }).humidity,
+      windSpeed: Math.round((noon.wind as { speed: number }).speed * 3.6),
     };
   });
 

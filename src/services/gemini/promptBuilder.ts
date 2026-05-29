@@ -15,7 +15,8 @@ export function buildTripContext(trip: Trip): string {
     (new Date(trip.endDate).getTime() - new Date(trip.startDate).getTime()) / (1000 * 60 * 60 * 24)
   );
   return [
-    `Destination: ${trip.destination}, ${trip.country}`,
+    `Starting Location (for transit/flight routing only): ${trip.startingLocation || 'Not provided'}`,
+    `Destination: ${trip.destination}, ${trip.country} ${trip.coordinates ? `(Lat: ${trip.coordinates.lat}, Lng: ${trip.coordinates.lng})` : ''}`,
     `Dates: ${trip.startDate} to ${trip.endDate} (${nights} nights)`,
     `Total Budget: ${trip.currency} ${trip.totalBudget.toLocaleString()}`,
     `Trip Style: ${trip.tripStyle}`,

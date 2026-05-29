@@ -7,7 +7,6 @@ import { useTripStore } from '../stores/tripStore';
 import { useAuthStore } from '../stores/authStore';
 import { useUIStore } from '../stores/uiStore';
 import { useItineraryStore } from '../stores/itineraryStore';
-import { useWeatherStore } from '../stores/weatherStore';
 import { saveTrip } from '../services/supabase/trips';
 import { useTripGeneration } from '../hooks/useTripGeneration';
 import AIThinkingIndicator from '../components/common/AIThinkingIndicator';
@@ -30,13 +29,13 @@ export default function NewTrip() {
   const [isConverting, setIsConverting] = useState(false);
   const { user } = useAuthStore();
   const { isGenerating, generationProgress, agentStatus } = useTripStore();
-  const { itinerary, hotels, restaurants, packingList } = useItineraryStore();
-  const weatherForecast = useWeatherStore(s => s.forecast);
+  const { itinerary } = useItineraryStore();
   const { addToast } = useUIStore();
   const { generateTrip } = useTripGeneration();
   const navigate = useNavigate();
 
   // Form State
+  const [startingLocation, setStartingLocation] = useState('');
   const [destination, setDestination] = useState('');
   const [country, setCountry] = useState('');
   const [startDate, setStartDate] = useState(getTodayISO());
@@ -165,6 +164,7 @@ export default function NewTrip() {
     const newTrip: Trip = {
       id: tripId,
       userId: user?.id,
+      startingLocation,
       destination,
       country,
       startDate,
@@ -220,10 +220,6 @@ export default function NewTrip() {
         itinerary={itinerary}
         trip={pendingTrip}
         user={user}
-        hotels={hotels}
-        restaurants={restaurants}
-        packingList={packingList}
-        weatherForecast={weatherForecast}
         onNavigate={() => navigate(`/trip/${pendingTripId}`)}
         onLoginRequest={() => navigate('/login')}
       />
@@ -275,15 +271,20 @@ export default function NewTrip() {
                     </button>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div className="flex flex-col gap-3 items-center">
                       <label className="text-[0.7rem] font-sans text-primary/70 uppercase tracking-[0.2em]">Starting Point</label>
-                      <input type="text" placeholder="e.g., Tokyo" value={destination} onChange={e => setDestination(e.target.value)} 
+                      <input type="text" placeholder="e.g., Tokyo" value={startingLocation} onChange={e => setStartingLocation(e.target.value)} 
                              className="w-full bg-black/40 border border-white/10 rounded-lg py-4 px-6 text-center text-lg text-white focus:outline-none focus:border-gold/50 focus:bg-black/60 transition-all placeholder:text-white/20 shadow-inner" />
                     </div>
                     <div className="flex flex-col gap-3 items-center">
                       <label className="text-[0.7rem] font-sans text-primary/70 uppercase tracking-[0.2em]">Destination City</label>
-                      <input type="text" placeholder="e.g., Kyoto" value={country} onChange={e => setCountry(e.target.value)} 
+                      <input type="text" placeholder="e.g., Kyoto" value={destination} onChange={e => setDestination(e.target.value)} 
+                             className="w-full bg-black/40 border border-white/10 rounded-lg py-4 px-6 text-center text-lg text-white focus:outline-none focus:border-gold/50 focus:bg-black/60 transition-all placeholder:text-white/20 shadow-inner" />
+                    </div>
+                    <div className="flex flex-col gap-3 items-center">
+                      <label className="text-[0.7rem] font-sans text-primary/70 uppercase tracking-[0.2em]">Destination Country</label>
+                      <input type="text" placeholder="e.g., Japan" value={country} onChange={e => setCountry(e.target.value)} 
                              className="w-full bg-black/40 border border-white/10 rounded-lg py-4 px-6 text-center text-lg text-white focus:outline-none focus:border-gold/50 focus:bg-black/60 transition-all placeholder:text-white/20 shadow-inner" />
                     </div>
                   </div>

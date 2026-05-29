@@ -31,6 +31,8 @@ export interface Trip {
   userId?: string;
   destination: string;
   country: string;
+  startingLocation?: string;
+  coordinates?: { lat: number; lng: number };
   startDate: string; // ISO date string
   endDate: string;
   totalBudget: number;
@@ -46,6 +48,7 @@ export interface Trip {
 export interface TripFormData {
   destination: string;
   country: string;
+  startingLocation?: string;
   startDate: string;
   endDate: string;
   totalBudget: number;

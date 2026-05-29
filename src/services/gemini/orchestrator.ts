@@ -9,7 +9,7 @@ import { recommendHotels } from './agents/hotelAgent';
 import { recommendFood } from './agents/foodAgent';
 import { generatePackingList } from './agents/packingAgent';
 import { generateItinerary } from './agents/itineraryAgent';
-import { getWeatherForecast } from '../weather/weatherService';
+import { getWeatherForecast, getWeatherForecastByCoords } from '../weather/weatherService';
 
 export interface OrchestrationResult {
   groupConstraints: GroupConstraints;
@@ -38,11 +38,18 @@ export async function orchestrateTrip(
   };
 
   // STEP 1: Run group analyzer + weather fetch in parallel
+  // Use coordinate-based weather if Nominatim geocoding succeeded for 100% accuracy
   update({ groupAnalyzer: 'running', weather: 'running' }, 5);
+
+  const weatherFetcher = trip.coordinates
+    ? getWeatherForecastByCoords(trip.coordinates.lat, trip.coordinates.lng).catch(() =>
+        getWeatherForecast(`${trip.destination}, ${trip.country}`).catch(() => null)
+      )
+    : getWeatherForecast(`${trip.destination}, ${trip.country}`).catch(() => null);
 
   const [groupConstraints, weatherForecast] = await Promise.allSettled([
     analyzeGroup(trip.groupMembers),
-    getWeatherForecast(trip.destination).catch(() => null),
+    weatherFetcher,
   ]).then(results => [
     results[0].status === 'fulfilled' ? results[0].value : getDefaultConstraints(trip),
     results[1].status === 'fulfilled' ? results[1].value : null,

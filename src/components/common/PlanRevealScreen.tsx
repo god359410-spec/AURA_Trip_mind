@@ -3,23 +3,16 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowRight, ArrowLeft, MapPin, Calendar, Users, DollarSign, Mail, LogIn, Download, Sparkles, ChevronRight, X } from 'lucide-react';
 import { Itinerary } from '../../types/itinerary.types';
 import { Trip } from '../../types/trip.types';
-import { HotelRecommendation } from '../../types/hotel.types';
-import { FoodRecommendation, PackingList } from '../../types/ai.types';
-import { WeatherForecast } from '../../types/weather.types';
 import { User } from '@supabase/supabase-js';
 import { formatDateShort } from '../../utils/dateUtils';
 import { formatCurrency } from '../../utils/currencyUtils';
-import { fetchPlaceImage, fetchImageAsBase64 } from '../../utils/imageUtils';
+import { fetchPlaceImage } from '../../utils/imageUtils';
 import { jsPDF } from 'jspdf';
 
 interface Props {
   itinerary: Itinerary;
   trip: Trip;
   user: User | null;
-  hotels?: HotelRecommendation[];
-  restaurants?: FoodRecommendation[];
-  packingList?: PackingList | null;
-  weatherForecast?: WeatherForecast | null;
   onNavigate: () => void;
   onLoginRequest: () => void;
 }
@@ -200,7 +193,7 @@ function DayCard({
   );
 }
 
-export default function PlanRevealScreen({ itinerary, trip, user, hotels = [], restaurants = [], packingList = null, weatherForecast = null, onNavigate, onLoginRequest }: Props) {
+export default function PlanRevealScreen({ itinerary, trip, user, onNavigate, onLoginRequest }: Props) {
   const [currentDay, setCurrentDay] = useState(0);
   const [showIntro, setShowIntro] = useState(true);
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
@@ -241,673 +234,116 @@ export default function PlanRevealScreen({ itinerary, trip, user, hotels = [], r
     }
     setIsSendingPDF(true);
     try {
+      // Generate PDF
       const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
       const W = pdf.internal.pageSize.getWidth();
       const H = pdf.internal.pageSize.getHeight();
-      const gold: [number, number, number] = [196, 163, 90];
-      const cream: [number, number, number] = [245, 240, 235];
-      const dark: [number, number, number] = [20, 16, 8];
-      const grey: [number, number, number] = [140, 135, 130];
+      const gold = [196, 163, 90] as const;
+      const cream = [245, 240, 235] as const;
 
-      // ── COVER PAGE ──────────────────────────────────────────────
-      // Try to fetch destination cover image
-      const coverImgB64 = await fetchImageAsBase64(itinerary.destination + ' landmark');
-      
-      pdf.setFillColor(...dark);
+      // Cover page
+      pdf.setFillColor(10, 10, 10);
       pdf.rect(0, 0, W, H, 'F');
 
-      if (coverImgB64) {
-        try {
-          pdf.addImage(coverImgB64, 'JPEG', 0, 0, W, H * 0.52);
-          // Dark overlay on cover image
-          pdf.setFillColor(0, 0, 0);
-          pdf.rect(0, 0, W, H * 0.52, 'F');
-        } catch { /* image embed failed */ }
-      }
-
-      // Gold accent lines
+      // Gold accent line top
       pdf.setDrawColor(...gold);
       pdf.setLineWidth(0.5);
-      pdf.line(20, 15, W - 20, 15);
-      pdf.line(20, H - 15, W - 20, H - 15);
+      pdf.line(20, 18, W - 20, 18);
 
       // Title
-      const titleY = coverImgB64 ? H * 0.38 : 55;
       pdf.setFont('helvetica', 'bold');
-      pdf.setFontSize(32);
+      pdf.setFontSize(28);
       pdf.setTextColor(...cream);
-      pdf.text(itinerary.destination.toUpperCase(), W / 2, titleY, { align: 'center' });
+      pdf.text(itinerary.destination.toUpperCase(), W / 2, 50, { align: 'center' });
 
       pdf.setFont('helvetica', 'normal');
-      pdf.setFontSize(9);
+      pdf.setFontSize(10);
       pdf.setTextColor(...gold);
-      pdf.text('AI-POWERED TRAVEL ITINERARY · TRIPMIND AI', W / 2, titleY + 10, { align: 'center' });
+      pdf.text('AI TRAVEL ITINERARY', W / 2, 60, { align: 'center' });
 
-      // Meta info box
-      const metaY = titleY + 22;
-      pdf.setFillColor(...dark);
-      pdf.roundedRect(20, metaY, W - 40, 28, 3, 3, 'F');
+      // Meta info
+      pdf.setFontSize(8);
+      pdf.setTextColor(180, 175, 170);
+      pdf.text(`${formatDateShort(trip.startDate)} — ${formatDateShort(trip.endDate)}`, W / 2, 72, { align: 'center' });
+      pdf.text(`${trip.groupMembers.length} Traveler${trip.groupMembers.length > 1 ? 's' : ''} · Budget: ${formatCurrency(trip.totalBudget, currency)}`, W / 2, 80, { align: 'center' });
+
+      // Gold line separator
       pdf.setDrawColor(...gold);
-      pdf.setLineWidth(0.3);
-      pdf.roundedRect(20, metaY, W - 40, 28, 3, 3, 'S');
-
-      pdf.setFont('helvetica', 'normal');
-      pdf.setFontSize(7);
-      pdf.setTextColor(...grey);
-      pdf.text('DATES', 30, metaY + 9);
-      pdf.text('GROUP', W / 2 - 10, metaY + 9);
-      pdf.text('BUDGET', W - 50, metaY + 9);
-
-      pdf.setFont('helvetica', 'bold');
-      pdf.setFontSize(9);
-      pdf.setTextColor(...cream);
-      pdf.text(`${formatDateShort(trip.startDate)} – ${formatDateShort(trip.endDate)}`, 30, metaY + 18);
-      pdf.text(`${trip.groupMembers.length} Traveler${trip.groupMembers.length > 1 ? 's' : ''}`, W / 2 - 10, metaY + 18);
-      pdf.text(formatCurrency(trip.totalBudget, currency), W - 50, metaY + 18);
+      pdf.line(20, 90, W - 20, 90);
 
       // AI Summary
-      const summaryY = metaY + 40;
-      pdf.setFont('helvetica', 'italic');
-      pdf.setFontSize(9);
-      pdf.setTextColor(...cream);
-      const summaryLines = pdf.splitTextToSize(itinerary.aiSummary, W - 40);
-      pdf.text(summaryLines.slice(0, 4), 20, summaryY);
-
-      // Highlights
-      const hlY = summaryY + summaryLines.slice(0, 4).length * 5.5 + 10;
-      pdf.setFont('helvetica', 'bold');
-      pdf.setFontSize(8);
-      pdf.setTextColor(...gold);
-      pdf.text('HIGHLIGHTS', 20, hlY);
       pdf.setFont('helvetica', 'normal');
-      pdf.setFontSize(8);
-      pdf.setTextColor(...grey);
-      (itinerary.highlights || []).slice(0, 5).forEach((hl, i) => {
-        pdf.text(`• ${hl}`, 22, hlY + 7 + i * 5.5);
-      });
+      pdf.setFontSize(9);
+      pdf.setTextColor(200, 195, 190);
+      const summaryLines = pdf.splitTextToSize(itinerary.aiSummary, W - 40);
+      pdf.text(summaryLines.slice(0, 8), 20, 102);
 
-      // Travel Tips
-      const tipsY = hlY + 42;
-      if (itinerary.travelTips?.length) {
+      // Each day
+      let yPos = 130;
+      itinerary.days.forEach((day) => {
+        if (yPos > H - 60) {
+          pdf.addPage();
+          pdf.setFillColor(10, 10, 10);
+          pdf.rect(0, 0, W, H, 'F');
+          yPos = 24;
+        }
+
+        // Day header
+        pdf.setFillColor(30, 24, 8);
+        pdf.roundedRect(20, yPos - 6, W - 40, 18, 3, 3, 'F');
         pdf.setFont('helvetica', 'bold');
-        pdf.setFontSize(8);
+        pdf.setFontSize(10);
         pdf.setTextColor(...gold);
-        pdf.text('TRAVEL TIPS', 20, tipsY);
-        pdf.setFont('helvetica', 'normal');
-        pdf.setFontSize(7.5);
-        pdf.setTextColor(...grey);
-        itinerary.travelTips.slice(0, 5).forEach((tip, i) => {
-          const tipLines = pdf.splitTextToSize(`• ${tip}`, W - 44);
-          pdf.text(tipLines.slice(0, 1), 22, tipsY + 7 + i * 6);
-        });
-      }
-
-      // Budget breakdown
-      const bdgY = Math.min(tipsY + 50, H - 50);
-      pdf.setFont('helvetica', 'bold');
-      pdf.setFontSize(8);
-      pdf.setTextColor(...gold);
-      pdf.text('BUDGET BREAKDOWN (TOTAL)', 20, bdgY);
-      const bdg = itinerary.budgetBreakdown;
-      const bdgItems: [string, number][] = [
-        ['Accommodation', bdg.accommodation], ['Food', bdg.food],
-        ['Activities', bdg.activities], ['Transport', bdg.transport],
-        ['Shopping', bdg.shopping], ['Emergency', bdg.emergency],
-      ];
-      bdgItems.forEach(([label, val], i) => {
-        const bx = i < 3 ? 20 : W / 2 + 5;
-        const by = bdgY + 8 + (i % 3) * 7;
+        pdf.text(`DAY ${day.dayNumber}: ${day.theme.toUpperCase()}`, 26, yPos + 5);
         pdf.setFont('helvetica', 'normal');
         pdf.setFontSize(7);
-        pdf.setTextColor(...grey);
-        pdf.text(label, bx, by);
+        pdf.setTextColor(150, 145, 140);
+        pdf.text(formatDateShort(day.date), W - 26, yPos + 5, { align: 'right' });
+        yPos += 22;
+
+        // Activities
+        day.activities.forEach((act) => {
+          if (yPos > H - 30) {
+            pdf.addPage();
+            pdf.setFillColor(10, 10, 10);
+            pdf.rect(0, 0, W, H, 'F');
+            yPos = 24;
+          }
+          pdf.setFont('helvetica', 'bold');
+          pdf.setFontSize(8);
+          pdf.setTextColor(...cream);
+          pdf.text(`${act.time}  ${act.name}`, 24, yPos);
+          pdf.setFont('helvetica', 'normal');
+          pdf.setFontSize(7);
+          pdf.setTextColor(150, 145, 140);
+          const descLines = pdf.splitTextToSize(act.description, W - 60);
+          pdf.text(descLines.slice(0, 2), 24, yPos + 4);
+          if (act.estimatedCostPerPerson > 0) {
+            pdf.setTextColor(...gold);
+            pdf.text(formatCurrency(act.estimatedCostPerPerson, act.currency), W - 24, yPos, { align: 'right' });
+          }
+          yPos += 14 + Math.min(descLines.length, 2) * 3.5;
+        });
+
+        // Day total
         pdf.setFont('helvetica', 'bold');
-        pdf.setTextColor(...cream);
-        pdf.text(formatCurrency(val, currency), bx + 30, by);
+        pdf.setFontSize(7);
+        pdf.setTextColor(...gold);
+        pdf.text(`Day Total (per person): ${formatCurrency(day.totalCostPerPerson, currency)}`, W - 24, yPos, { align: 'right' });
+        yPos += 14;
+
+        // Divider
+        pdf.setDrawColor(50, 45, 35);
+        pdf.line(20, yPos - 4, W - 20, yPos - 4);
+        yPos += 4;
       });
 
-      pdf.setFont('helvetica', 'normal');
+      // Footer on last page
       pdf.setFontSize(7);
       pdf.setTextColor(...gold);
-      pdf.text('Powered by TripMind AI · Aura TKS', W / 2, H - 8, { align: 'center' });
-
-      // ── DAY PAGES ───────────────────────────────
-      for (const day of itinerary.days) {
-        pdf.addPage();
-        pdf.setFillColor(...dark);
-        pdf.rect(0, 0, W, H, 'F');
-
-        // Fetch a real image for this day's landmark
-        const dayImgB64 = await fetchImageAsBase64(
-          day.imageSearchTerm || day.theme || itinerary.destination
-        );
-
-        let headerHeight = 0;
-        if (dayImgB64) {
-          try {
-            pdf.addImage(dayImgB64, 'JPEG', 0, 0, W, 55);
-            // Dark overlay
-            pdf.setFillColor(0, 0, 0);
-            pdf.rect(0, 0, W, 55, 'F');
-            headerHeight = 55;
-          } catch { headerHeight = 0; }
-        }
-
-        // Day badge (gold pill)
-        const badgeY = headerHeight > 0 ? 10 : 12;
-        pdf.setFillColor(...gold);
-        pdf.roundedRect(18, badgeY, 26, 7, 2, 2, 'F');
-        pdf.setFont('helvetica', 'bold');
-        pdf.setFontSize(7);
-        pdf.setTextColor(10, 10, 10);
-        pdf.text(`DAY ${day.dayNumber}`, 31, badgeY + 5, { align: 'center' });
-
-        // Date badge
-        pdf.setFont('helvetica', 'normal');
-        pdf.setFontSize(7);
-        pdf.setTextColor(headerHeight > 0 ? 220 : 140, headerHeight > 0 ? 215 : 135, headerHeight > 0 ? 210 : 130);
-        pdf.text(formatDateShort(day.date), W - 20, badgeY + 5, { align: 'right' });
-
-        // Day Theme
-        const themeY = headerHeight > 0 ? 42 : badgeY + 13;
-        pdf.setFont('helvetica', 'bold');
-        pdf.setFontSize(15);
-        pdf.setTextColor(...cream);
-        const themeLines = pdf.splitTextToSize(day.theme, W - 40);
-        pdf.text(themeLines.slice(0, 2), 20, themeY);
-
-        // Description
-        const dayDescY = themeY + themeLines.slice(0, 2).length * 6.5 + 2;
-        pdf.setFont('helvetica', 'italic');
-        pdf.setFontSize(8);
-        pdf.setTextColor(...grey);
-        if (day.description) {
-          const dayDescLines = pdf.splitTextToSize(day.description, W - 40);
-          pdf.text(dayDescLines.slice(0, 1), 20, dayDescY);
-        }
-
-        // Separator
-        const sepY = dayDescY + 6;
-        pdf.setDrawColor(...gold);
-        pdf.setLineWidth(0.25);
-        pdf.line(20, sepY, W - 20, sepY);
-
-        // Activities table
-        let actY = sepY + 7;
-        const actHeader = ['TIME', 'ACTIVITY', 'DURATION', 'COST'];
-        const colX = [20, 38, W - 50, W - 22];
-
-        pdf.setFont('helvetica', 'bold');
-        pdf.setFontSize(6.5);
-        pdf.setTextColor(...gold);
-        actHeader.forEach((h, hi) => pdf.text(h, colX[hi], actY, { align: hi === 3 ? 'right' : 'left' }));
-        actY += 4;
-        pdf.setLineWidth(0.15);
-        pdf.setDrawColor(...gold);
-        pdf.line(20, actY, W - 20, actY);
-        actY += 3;
-
-        day.activities.forEach((act, ai) => {
-          if (actY > H - 22) {
-            pdf.addPage();
-            pdf.setFillColor(...dark);
-            pdf.rect(0, 0, W, H, 'F');
-            actY = 16;
-          }
-
-          // Alternating row bg
-          if (ai % 2 === 0) {
-            pdf.setFillColor(28, 22, 8);
-            pdf.rect(18, actY - 2, W - 36, 14, 'F');
-          }
-
-          // Type indicator dot
-          const dotColor: [number, number, number] =
-            act.type === 'meal' ? [34, 197, 94] :
-            act.type === 'transport' ? [59, 130, 246] :
-            act.type === 'rest' ? [139, 92, 246] : [...gold];
-          pdf.setFillColor(...dotColor);
-          pdf.circle(23, actY + 4, 1.2, 'F');
-
-          // Time
-          pdf.setFont('helvetica', 'bold');
-          pdf.setFontSize(7);
-          pdf.setTextColor(...gold);
-          pdf.text(act.time, 27, actY + 4);
-
-          // Activity Name
-          pdf.setFont('helvetica', 'bold');
-          pdf.setFontSize(8);
-          pdf.setTextColor(...cream);
-          const nameClipped = act.name.length > 42 ? act.name.substring(0, 40) + '…' : act.name;
-          pdf.text(nameClipped, 38, actY + 4);
-
-          // Description below name
-          pdf.setFont('helvetica', 'normal');
-          pdf.setFontSize(6.5);
-          pdf.setTextColor(...grey);
-          const actDescLines = pdf.splitTextToSize(act.description || '', W - 90);
-          pdf.text(actDescLines.slice(0, 1), 38, actY + 9);
-
-          // Duration
-          pdf.setFont('helvetica', 'normal');
-          pdf.setFontSize(7);
-          pdf.setTextColor(...grey);
-          pdf.text(act.duration, W - 50, actY + 4);
-
-          // Cost
-          if (act.estimatedCostPerPerson > 0) {
-            pdf.setFont('helvetica', 'bold');
-            pdf.setFontSize(7);
-            pdf.setTextColor(...gold);
-            pdf.text(formatCurrency(act.estimatedCostPerPerson, act.currency), W - 20, actY + 4, { align: 'right' });
-          } else {
-            pdf.setFont('helvetica', 'normal');
-            pdf.setFontSize(7);
-            pdf.setTextColor(34, 197, 94);
-            pdf.text('Free', W - 20, actY + 4, { align: 'right' });
-          }
-
-          actY += 14;
-
-          // Tips row
-          if (act.tips) {
-            if (actY > H - 22) {
-              pdf.addPage();
-              pdf.setFillColor(...dark);
-              pdf.rect(0, 0, W, H, 'F');
-              actY = 16;
-            }
-            pdf.setFont('helvetica', 'italic');
-            pdf.setFontSize(6);
-            pdf.setTextColor(196, 163, 90);
-            pdf.text(`⚡ Tip: ${act.tips.substring(0, 80)}`, 28, actY);
-            actY += 5;
-          }
-        });
-
-        // Day total row
-        if (actY > H - 16) {
-          pdf.addPage();
-          pdf.setFillColor(...dark);
-          pdf.rect(0, 0, W, H, 'F');
-          actY = 16;
-        }
-        pdf.setDrawColor(...gold);
-        pdf.setLineWidth(0.2);
-        pdf.line(20, actY + 2, W - 20, actY + 2);
-        actY += 7;
-        pdf.setFont('helvetica', 'bold');
-        pdf.setFontSize(8);
-        pdf.setTextColor(...grey);
-        pdf.text('ESTIMATED TOTAL (per person)', 20, actY);
-        pdf.setTextColor(...gold);
-        pdf.text(formatCurrency(day.totalCostPerPerson, currency), W - 20, actY, { align: 'right' });
-
-        // Page footer
-        pdf.setFont('helvetica', 'normal');
-        pdf.setFontSize(6);
-        pdf.setTextColor(70, 65, 55);
-        pdf.text(`Day ${day.dayNumber} of ${itinerary.totalDays} · TripMind AI`, W / 2, H - 5, { align: 'center' });
-      }
-
-      // ── STAY RECOMMENDATIONS PAGE ─────────────────────────────
-      if (hotels.length > 0) {
-        pdf.addPage();
-        pdf.setFillColor(...dark);
-        pdf.rect(0, 0, W, H, 'F');
-        pdf.setFont('helvetica', 'bold');
-        pdf.setFontSize(18);
-        pdf.setTextColor(...gold);
-        pdf.text('STAY RECOMMENDATIONS', W / 2, 25, { align: 'center' });
-        pdf.setDrawColor(...gold);
-        pdf.setLineWidth(0.3);
-        pdf.line(20, 30, W - 20, 30);
-
-        let hy = 40;
-        hotels.slice(0, 6).forEach((hotel) => {
-          if (hy > H - 40) {
-            pdf.addPage();
-            pdf.setFillColor(...dark);
-            pdf.rect(0, 0, W, H, 'F');
-            hy = 20;
-          }
-          pdf.setFillColor(28, 22, 8);
-          pdf.roundedRect(18, hy - 2, W - 36, 30, 2, 2, 'F');
-
-          pdf.setFont('helvetica', 'bold');
-          pdf.setFontSize(10);
-          pdf.setTextColor(...cream);
-          pdf.text(hotel.name, 24, hy + 6);
-
-          pdf.setFont('helvetica', 'normal');
-          pdf.setFontSize(7);
-          pdf.setTextColor(...grey);
-          pdf.text(`${'★'.repeat(hotel.starRating)} · ${hotel.amenities.slice(0, 3).join(', ')}`, 24, hy + 13);
-          pdf.text(`${hotel.distanceFromCenter}km from center · ${hotel.roomTypes.slice(0, 2).join(', ')}`, 24, hy + 19);
-
-          pdf.setFont('helvetica', 'bold');
-          pdf.setFontSize(9);
-          pdf.setTextColor(...gold);
-          pdf.text(`${formatCurrency(hotel.pricePerNight, hotel.currency)}/night`, W - 22, hy + 6, { align: 'right' });
-
-          pdf.setFont('helvetica', 'italic');
-          pdf.setFontSize(6.5);
-          pdf.setTextColor(160, 155, 140);
-          const note = hotel.aiReasoningNote.substring(0, 80);
-          pdf.text(note, 24, hy + 25);
-
-          hy += 36;
-        });
-        pdf.setFont('helvetica', 'normal');
-        pdf.setFontSize(6);
-        pdf.setTextColor(70, 65, 55);
-        pdf.text('Stay Recommendations · TripMind AI', W / 2, H - 5, { align: 'center' });
-      }
-
-      // ── LOCAL FOOD GUIDE PAGE ─────────────────────────────────
-      if (restaurants.length > 0) {
-        pdf.addPage();
-        pdf.setFillColor(...dark);
-        pdf.rect(0, 0, W, H, 'F');
-        pdf.setFont('helvetica', 'bold');
-        pdf.setFontSize(18);
-        pdf.setTextColor(...gold);
-        pdf.text('LOCAL FOOD GUIDE', W / 2, 25, { align: 'center' });
-        pdf.setDrawColor(...gold);
-        pdf.setLineWidth(0.3);
-        pdf.line(20, 30, W - 20, 30);
-
-        let fy = 40;
-        restaurants.slice(0, 8).forEach((rest, ri) => {
-          if (fy > H - 35) {
-            pdf.addPage();
-            pdf.setFillColor(...dark);
-            pdf.rect(0, 0, W, H, 'F');
-            fy = 20;
-          }
-          if (ri % 2 === 0) {
-            pdf.setFillColor(28, 22, 8);
-            pdf.rect(18, fy - 2, W - 36, 22, 'F');
-          }
-          // Dot color by meal type
-          const mealColor: [number, number, number] = rest.mealType.includes('breakfast') ? [59, 130, 246] : rest.mealType.includes('dinner') ? [196, 163, 90] : [34, 197, 94];
-          pdf.setFillColor(...mealColor);
-          pdf.circle(23, fy + 4, 1.2, 'F');
-
-          pdf.setFont('helvetica', 'bold');
-          pdf.setFontSize(9);
-          pdf.setTextColor(...cream);
-          pdf.text(rest.name, 28, fy + 5);
-
-          pdf.setFont('helvetica', 'normal');
-          pdf.setFontSize(7);
-          pdf.setTextColor(...grey);
-          pdf.text(`${rest.cuisineType} · ${rest.priceRange} · ${rest.openingHours}`, 28, fy + 11);
-
-          if (rest.mustTryDishes.length > 0) {
-            pdf.setFont('helvetica', 'italic');
-            pdf.setFontSize(6.5);
-            pdf.setTextColor(180, 170, 140);
-            pdf.text(`Must try: ${rest.mustTryDishes.slice(0, 3).join(', ')}`, 28, fy + 17);
-          }
-
-          if (rest.dietaryTags.length > 0) {
-            pdf.setFont('helvetica', 'normal');
-            pdf.setFontSize(6);
-            pdf.setTextColor(34, 197, 94);
-            pdf.text(rest.dietaryTags.slice(0, 3).join(' · '), W - 22, fy + 5, { align: 'right' });
-          }
-
-          fy += 26;
-        });
-        pdf.setFont('helvetica', 'normal');
-        pdf.setFontSize(6);
-        pdf.setTextColor(70, 65, 55);
-        pdf.text('Local Food Guide · TripMind AI', W / 2, H - 5, { align: 'center' });
-      }
-
-      // ── WEATHER FORECAST PAGE ─────────────────────────────────
-      if (weatherForecast && weatherForecast.days.length > 0) {
-        pdf.addPage();
-        pdf.setFillColor(...dark);
-        pdf.rect(0, 0, W, H, 'F');
-        pdf.setFont('helvetica', 'bold');
-        pdf.setFontSize(18);
-        pdf.setTextColor(...gold);
-        pdf.text('WEATHER FORECAST', W / 2, 25, { align: 'center' });
-        pdf.setDrawColor(...gold);
-        pdf.setLineWidth(0.3);
-        pdf.line(20, 30, W - 20, 30);
-
-        let wy = 40;
-        // Table header
-        pdf.setFont('helvetica', 'bold');
-        pdf.setFontSize(7);
-        pdf.setTextColor(...gold);
-        ['DAY', 'TEMP', 'RAIN', 'CONDITION', 'WIND', 'HUMIDITY'].forEach((h, i) => {
-          const wx = [20, 55, 85, 110, W - 50, W - 22][i];
-          pdf.text(h, wx, wy);
-        });
-        wy += 5;
-        pdf.line(20, wy, W - 20, wy);
-        wy += 5;
-
-        weatherForecast.days.slice(0, 14).forEach((wDay, wi) => {
-          if (wy > H - 20) {
-            pdf.addPage();
-            pdf.setFillColor(...dark);
-            pdf.rect(0, 0, W, H, 'F');
-            wy = 20;
-          }
-          if (wi % 2 === 0) {
-            pdf.setFillColor(28, 22, 8);
-            pdf.rect(18, wy - 3, W - 36, 10, 'F');
-          }
-          pdf.setFont('helvetica', 'normal');
-          pdf.setFontSize(7);
-          pdf.setTextColor(...cream);
-          pdf.text(`${wDay.dayName} ${wDay.dateFormatted}`, 20, wy + 3);
-          pdf.text(`${wDay.tempMin}° – ${wDay.tempMax}°C`, 55, wy + 3);
-
-          // Rain probability color-coded
-          const rainColor: [number, number, number] = wDay.precipitationProbability > 60 ? [59, 130, 246] : wDay.precipitationProbability > 30 ? [196, 163, 90] : [34, 197, 94];
-          pdf.setTextColor(...rainColor);
-          pdf.text(`${wDay.precipitationProbability}%`, 85, wy + 3);
-
-          pdf.setTextColor(...grey);
-          pdf.text(wDay.condition.description, 110, wy + 3);
-          pdf.text(`${wDay.windSpeed} km/h`, W - 50, wy + 3);
-          pdf.text(`${wDay.humidity}%`, W - 22, wy + 3);
-          wy += 12;
-        });
-        pdf.setFont('helvetica', 'normal');
-        pdf.setFontSize(6);
-        pdf.setTextColor(70, 65, 55);
-        pdf.text('Weather Forecast · TripMind AI', W / 2, H - 5, { align: 'center' });
-      }
-
-      // ── PACKING LIST PAGE ─────────────────────────────────────
-      if (packingList && packingList.categories.length > 0) {
-        pdf.addPage();
-        pdf.setFillColor(...dark);
-        pdf.rect(0, 0, W, H, 'F');
-        pdf.setFont('helvetica', 'bold');
-        pdf.setFontSize(18);
-        pdf.setTextColor(...gold);
-        pdf.text('WEATHER-BASED PACKING ADVICE', W / 2, 25, { align: 'center' });
-        pdf.setDrawColor(...gold);
-        pdf.setLineWidth(0.3);
-        pdf.line(20, 30, W - 20, 30);
-
-        // Weather & destination notes
-        let py = 38;
-        if (packingList.weatherNote) {
-          pdf.setFont('helvetica', 'italic');
-          pdf.setFontSize(8);
-          pdf.setTextColor(...cream);
-          pdf.text(`☁ ${packingList.weatherNote}`, 20, py);
-          py += 6;
-        }
-        if (packingList.destinationNote) {
-          pdf.setFont('helvetica', 'italic');
-          pdf.setFontSize(8);
-          pdf.setTextColor(...grey);
-          pdf.text(`📍 ${packingList.destinationNote}`, 20, py);
-          py += 8;
-        }
-
-        packingList.categories.forEach((cat) => {
-          if (py > H - 30) {
-            pdf.addPage();
-            pdf.setFillColor(...dark);
-            pdf.rect(0, 0, W, H, 'F');
-            py = 20;
-          }
-          pdf.setFont('helvetica', 'bold');
-          pdf.setFontSize(9);
-          pdf.setTextColor(...gold);
-          pdf.text(`${cat.icon} ${cat.name.toUpperCase()}`, 20, py);
-          py += 6;
-
-          // Two-column layout for items
-          cat.items.forEach((item, ii) => {
-            if (py > H - 12) {
-              pdf.addPage();
-              pdf.setFillColor(...dark);
-              pdf.rect(0, 0, W, H, 'F');
-              py = 20;
-            }
-            const colX = ii % 2 === 0 ? 24 : W / 2 + 4;
-            const itemY = py;
-
-            // Checkbox
-            pdf.setDrawColor(...gold);
-            pdf.setLineWidth(0.2);
-            pdf.rect(colX, itemY - 2.5, 3, 3);
-
-            pdf.setFont('helvetica', 'normal');
-            pdf.setFontSize(7);
-            pdf.setTextColor(item.essential ? cream[0] : grey[0], item.essential ? cream[1] : grey[1], item.essential ? cream[2] : grey[2]);
-            const qty = item.quantity && item.quantity > 1 ? ` ×${item.quantity}` : '';
-            pdf.text(`${item.name}${qty}`, colX + 5, itemY);
-
-            if (item.essential) {
-              pdf.setFont('helvetica', 'bold');
-              pdf.setFontSize(5);
-              pdf.setTextColor(...gold);
-              pdf.text('★', colX + 5 + pdf.getTextWidth(`${item.name}${qty}`) + 1, itemY);
-            }
-
-            if (ii % 2 === 1 || ii === cat.items.length - 1) py += 5.5;
-          });
-          py += 4;
-        });
-        pdf.setFont('helvetica', 'normal');
-        pdf.setFontSize(6);
-        pdf.setTextColor(70, 65, 55);
-        pdf.text('Packing Advice · TripMind AI', W / 2, H - 5, { align: 'center' });
-      }
-
-      // ── TRANSPORT & ROUTES PAGE ───────────────────────────────
-      if (itinerary.routesAndTransit && itinerary.routesAndTransit.length > 0) {
-        pdf.addPage();
-        pdf.setFillColor(...dark);
-        pdf.rect(0, 0, W, H, 'F');
-        pdf.setFont('helvetica', 'bold');
-        pdf.setFontSize(18);
-        pdf.setTextColor(...gold);
-        pdf.text('TRANSPORT OPTIONS', W / 2, 25, { align: 'center' });
-        pdf.setDrawColor(...gold);
-        pdf.setLineWidth(0.3);
-        pdf.line(20, 30, W - 20, 30);
-
-        let ty = 40;
-        itinerary.routesAndTransit.forEach((route, ri) => {
-          if (ty > H - 30) {
-            pdf.addPage();
-            pdf.setFillColor(...dark);
-            pdf.rect(0, 0, W, H, 'F');
-            ty = 20;
-          }
-          if (ri % 2 === 0) {
-            pdf.setFillColor(28, 22, 8);
-            pdf.rect(18, ty - 2, W - 36, 20, 'F');
-          }
-          const modeEmoji = { walking: '🚶', bus: '🚌', train: '🚆', metro: '🚇', taxi: '🚕', bicycle: '🚲', flight: '✈️', other: '🚗' }[route.mode] || '🚗';
-
-          pdf.setFont('helvetica', 'bold');
-          pdf.setFontSize(8);
-          pdf.setTextColor(...cream);
-          pdf.text(`${modeEmoji} ${route.from} → ${route.to}`, 24, ty + 5);
-
-          pdf.setFont('helvetica', 'normal');
-          pdf.setFontSize(7);
-          pdf.setTextColor(...grey);
-          pdf.text(`${route.duration} · ${route.mode.toUpperCase()}`, 24, ty + 11);
-
-          if (route.cost) {
-            pdf.setFont('helvetica', 'bold');
-            pdf.setFontSize(7);
-            pdf.setTextColor(...gold);
-            pdf.text(formatCurrency(route.cost, currency), W - 22, ty + 5, { align: 'right' });
-          }
-
-          if (route.tips) {
-            pdf.setFont('helvetica', 'italic');
-            pdf.setFontSize(6);
-            pdf.setTextColor(160, 155, 140);
-            pdf.text(route.tips.substring(0, 70), 24, ty + 16);
-          }
-          ty += 24;
-        });
-      }
-
-      // ── EMERGENCY INFO (BACK COVER) ───────────────────────────
-      pdf.addPage();
-      pdf.setFillColor(...dark);
-      pdf.rect(0, 0, W, H, 'F');
+      pdf.text('Powered by TripMind AI · Aura TKS', W / 2, H - 10, { align: 'center' });
       pdf.setDrawColor(...gold);
-      pdf.setLineWidth(0.5);
-      pdf.line(20, 15, W - 20, 15);
       pdf.line(20, H - 15, W - 20, H - 15);
-
-      pdf.setFont('helvetica', 'bold');
-      pdf.setFontSize(18);
-      pdf.setTextColor(...gold);
-      pdf.text('EMERGENCY INFO', W / 2, 35, { align: 'center' });
-
-      const ei = itinerary.emergencyInfo;
-      let ey = 50;
-      const emergencyItems = [
-        ['🚨 Police', ei.policeNumber],
-        ['🚑 Ambulance', ei.ambulanceNumber],
-        ['🚒 Fire', ei.fireNumber],
-        ['ℹ️ Tourist Helpline', ei.touristHelpline || 'N/A'],
-        ['🏥 Nearest Hospital', ei.nearestHospital || 'N/A'],
-        ['🏛️ Embassy', ei.embassyInfo || 'N/A'],
-      ];
-      emergencyItems.forEach(([label, val]) => {
-        pdf.setFont('helvetica', 'normal');
-        pdf.setFontSize(9);
-        pdf.setTextColor(...grey);
-        pdf.text(String(label), 30, ey);
-        pdf.setFont('helvetica', 'bold');
-        pdf.setTextColor(...cream);
-        pdf.text(String(val), W / 2, ey);
-        ey += 10;
-      });
-
-      // Final branding
-      ey += 20;
-      pdf.setFont('helvetica', 'bold');
-      pdf.setFontSize(12);
-      pdf.setTextColor(...gold);
-      pdf.text('Have a wonderful trip!', W / 2, ey, { align: 'center' });
-      pdf.setFont('helvetica', 'normal');
-      pdf.setFontSize(8);
-      pdf.setTextColor(...grey);
-      pdf.text('Powered by TripMind AI · Aura TKS', W / 2, ey + 10, { align: 'center' });
 
       // Save locally
       pdf.save(`TripMind_${itinerary.destination.replace(/\s+/g, '_')}.pdf`);
@@ -916,7 +352,7 @@ export default function PlanRevealScreen({ itinerary, trip, user, hotels = [], r
       if (action === 'email' && user) {
         const subject = encodeURIComponent(`Your AI Itinerary: ${itinerary.destination}`);
         const body = encodeURIComponent(
-          `Hi ${user.user_metadata?.full_name || ''},\n\nYour TripMind AI itinerary for ${itinerary.destination} is ready.\n\n📅 Dates: ${formatDateShort(trip.startDate)} — ${formatDateShort(trip.endDate)}\n👥 Group: ${trip.groupMembers.length} traveler${trip.groupMembers.length > 1 ? 's' : ''}\n💰 Budget: ${formatCurrency(trip.totalBudget, currency)}\n\n${itinerary.aiSummary}\n\nPowered by TripMind AI · Aura TKS`
+          `Hi ${user.user_metadata?.full_name || ''},\n\nYour TripMind AI itinerary for ${itinerary.destination} is attached as a PDF.\n\n📅 Dates: ${formatDateShort(trip.startDate)} — ${formatDateShort(trip.endDate)}\n👥 Group: ${trip.groupMembers.length} traveler${trip.groupMembers.length > 1 ? 's' : ''}\n💰 Budget: ${formatCurrency(trip.totalBudget, currency)}\n\n${itinerary.aiSummary}\n\nPowered by TripMind AI · Aura TKS`
         );
         setTimeout(() => {
           window.location.href = `mailto:${user.email}?subject=${subject}&body=${body}`;

@@ -7,6 +7,8 @@ import { useUIStore } from '../stores/uiStore';
 import { orchestrateTrip } from '../services/gemini/orchestrator';
 import { analyzeWeatherAlerts } from '../services/weather/weatherService';
 
+import { geocodeDestination } from '../services/geocoding/nominatim';
+
 export function useTripGeneration() {
   const { setGenerating, setGenerationProgress, setAgentStatus, setGroupConstraints } = useTripStore();
   const { setItinerary, setHotels, setRestaurants, setPackingList } = useItineraryStore();
@@ -18,6 +20,13 @@ export function useTripGeneration() {
     setGenerationProgress(0);
 
     try {
+      // 1. Geocode the destination using OpenStreetMap Nominatim
+      const coordinates = await geocodeDestination(trip.destination, trip.country);
+      if (coordinates) {
+        trip.coordinates = coordinates;
+      }
+
+      // 2. Start Multi-Agent Orchestration
       const result = await orchestrateTrip(trip, (status, progress) => {
         setAgentStatus(status);
         setGenerationProgress(progress);

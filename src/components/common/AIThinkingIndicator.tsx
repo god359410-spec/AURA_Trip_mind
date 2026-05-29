@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { AgentStatus } from '../../types/ai.types';
+import { useTripStore } from '../../stores/tripStore';
 
 interface Props {
   progress: number;
@@ -433,16 +434,33 @@ export default function AIThinkingIndicator({ progress, agentStatus }: Props) {
             </div>
           </div>
 
-          {/* Bottom tip */}
-          <motion.p
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 1.5 }}
-            className="font-sans font-light"
-            style={{ color: 'rgba(245,240,235,0.2)', fontSize: '0.65rem', letterSpacing: '0.08em' }}
-          >
-            ✦ This usually takes 20–40 seconds depending on trip complexity.
-          </motion.p>
+          {/* Bottom tip and cancel */}
+          <div className="flex items-center justify-between">
+            <motion.p
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 1.5 }}
+              className="font-sans font-light"
+              style={{ color: 'rgba(245,240,235,0.2)', fontSize: '0.65rem', letterSpacing: '0.08em' }}
+            >
+              ✦ This usually takes 20–40 seconds depending on trip complexity.
+            </motion.p>
+            
+            <motion.button
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 3 }}
+              onClick={() => {
+                useTripStore.getState().setGenerating(false);
+                useTripStore.getState().resetTrip();
+                window.location.reload(); // Force terminate any hanging background promises
+              }}
+              className="text-[0.65rem] uppercase tracking-widest hover:text-red-400 transition-colors"
+              style={{ color: 'rgba(245,240,235,0.4)', borderBottom: '1px solid currentColor', paddingBottom: 2 }}
+            >
+              Cancel
+            </motion.button>
+          </div>
         </div>
       </div>
     </div>
