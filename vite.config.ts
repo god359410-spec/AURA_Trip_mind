@@ -21,9 +21,10 @@ export default defineConfig({
     chunkSizeWarningLimit: 1500, // Increase warning limit to suppress Vercel deployment warnings
     rollupOptions: {
       output: {
-        manualChunks: {
-          // Split large third-party libraries into a separate vendor chunk
-          vendor: ['react', 'react-dom', 'react-router-dom', 'framer-motion', 'lucide-react', 'zustand']
+        manualChunks(id) {
+          if (id.includes('node_modules')) {
+            return 'vendor';
+          }
         }
       }
     }
